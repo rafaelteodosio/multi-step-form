@@ -17,6 +17,11 @@ const initialValues = {
   amount: ''
 };
 
+function isMobile() {
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+  return viewportWidth <= 768;
+}
+
 function MultiStepForm() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [submitValues, setSubmitValues] = useState({ intervals: [{ ...initialValues }] });
@@ -38,10 +43,18 @@ function MultiStepForm() {
               return new Date(endDate) >= new Date(this.parent.start);
             }),
           type: Yup.string().required('Type is required'),
-          amount: Yup.number().required('Amount is required')
+          amount: Yup.number().when('type', {
+            is: 'Percentage',
+            then: () => Yup.number()
+              .max(100, 'Amount should not be greater than 100%')
+              .required('Amount is required')
+              .positive('Amount should be positive'),
+            otherwise: () => Yup.number().positive('Amount should be positive').required('Amount is required')
+          })
         })
       )
   });
+
 
   return (
     <>
@@ -54,7 +67,7 @@ function MultiStepForm() {
         }}
         validationSchema={ValidationSchema}
       >
-        {({ errors, touched, values }) => (
+        {({ values }) => (
           <Form>
             <h1>
               Multi Step Form
@@ -63,9 +76,9 @@ function MultiStepForm() {
               name="intervals"
               render={arrayHelpers => (
                 <div style={{ display: 'inline-grid', gap: '16px' }}>
-                  {values.intervals?.map((_, index) => (
-                    <Space>
-                      <IntervalItem index={index} />
+                  {values.intervals?.map((item, index) => (
+                    <Space direction={isMobile() ? 'vertical' : 'horizontal' }>
+                      <IntervalItem index={index} values={item} />
                       <Button
                         type='text'
                         onClick={() => arrayHelpers.remove(index)}
@@ -74,7 +87,7 @@ function MultiStepForm() {
                       </Button>
                     </Space>
                   ))}
-                  <Space size={16} style={{ justifyContent: 'center' }}>
+                  <Space size={16} style={{ justifyContent: 'center', marginBottom: '16px' }}>
                     <Button type='default' onClick={() => arrayHelpers.push({ ...initialValues })}>
                       Add interval
                     </Button>
@@ -103,9 +116,9 @@ function LabelItem({label, name}) {
   )
 }
 
-function IntervalItem({ index }) {
+function IntervalItem({ index, values }) {
   return (
-    <Space size={16}>
+    <Space direction={isMobile() ? 'vertical' : 'horizontal' } size={16}>
       <Field type="date" placeholder="Start Date" name={`intervals.${index}.start`}>
         {({ field, form }) => (
           <Space size={4}>
@@ -158,6 +171,8 @@ function IntervalItem({ index }) {
               {...field}
               onChange={(value) => form.setFieldValue(field.name, value)}
               onBlur={() => form.setFieldTouched(field.name, true)}
+              max={values.type === 'Percentage' ? 100 : null }
+              min={1}
             />
           </Space>
         )}
